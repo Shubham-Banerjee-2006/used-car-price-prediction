@@ -1,864 +1,1052 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0b1f3a">
-    <title>Used Car Price Prediction</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#06070a">
+<title>Used Car Price Prediction — AI Valuation Studio</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        /* ---------- Base / background fix (kills white flash on scroll) ---------- */
-        html {
-            height: 100%;
-            background: #0b1f3a;
-        }
+<style>
+    :root{
+        --void:#06070a;
+        --panel:#0d0f14;
+        --panel-2:#12151d;
+        --panel-3:#191d27;
+        --line: rgba(255,255,255,.09);
+        --line-2: rgba(255,255,255,.16);
+        --text-hi:#f4f7f8;
+        --text-mid:#a3aab9;
+        --text-dim:#666c7c;
+        --amber:#e3a458;
+        --amber-2:#f4cd93;
+        --amber-deep:#a8712f;
+        --cyan:#5fd6dd;
+        --success:#7be8ac;
+        --radius:16px;
+    }
 
-        html, body {
-            overscroll-behavior: none; /* stops the elastic white bounce on scroll/trackpad */
-        }
+    *{ box-sizing:border-box; }
+    html{ background:var(--void); scroll-behavior:smooth; }
+    html,body{ overscroll-behavior:none; }
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            padding: 40px 15px;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background:
-                radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.25), transparent 45%),
-                radial-gradient(circle at 85% 90%, rgba(37, 99, 235, 0.35), transparent 50%),
-                linear-gradient(135deg, #0b1f3a, #123a68 45%, #0ea5e9 130%);
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-            background-size: cover;
-            position: relative;
-            overflow-x: hidden;
-        }
+    body{
+        margin:0;
+        min-height:100vh;
+        font-family:'Inter', Arial, sans-serif;
+        background:var(--void);
+        color:var(--text-hi);
+        position:relative;
+        overflow-x:hidden;
+    }
 
-        /* subtle road-line pattern in the background, purely decorative */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background-image: repeating-linear-gradient(
-                115deg,
-                rgba(255, 255, 255, 0.035) 0px,
-                rgba(255, 255, 255, 0.035) 2px,
-                transparent 2px,
-                transparent 90px
-            );
-            z-index: 0;
-        }
+    @media (prefers-reduced-motion: reduce){
+        *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
+    }
 
-        /* ---------- Card shell ---------- */
-        .stage {
-            width: 100%;
-            max-width: 650px;
-            margin: auto;
-            position: relative;
-            z-index: 1;
-            perspective: 1200px;
-        }
+    ::selection{ background:var(--amber); color:#1a1204; }
 
-        .container {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.97);
-            padding: 34px 30px 30px;
-            border-radius: 22px;
-            box-shadow: 0 25px 60px rgba(2, 12, 30, 0.45), 0 2px 0 rgba(255, 255, 255, 0.6) inset;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-        }
+    a{ color:inherit; }
 
-        /* Entry/exit animations */
-        @keyframes cardExitUp {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            100% { transform: translateY(-90px) scale(0.96); opacity: 0; }
-        }
+    /* ---------- ambient background texture (shared) ---------- */
+    .grid-veil{
+        position:fixed; inset:0; pointer-events:none; z-index:0;
+        background-image:
+            linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+        background-size:64px 64px;
+        mask-image: radial-gradient(circle at 50% 20%, rgba(0,0,0,.9), transparent 75%);
+    }
+    .glow-amber, .glow-cyan{
+        position:fixed; pointer-events:none; z-index:0; border-radius:50%; filter:blur(120px);
+    }
+    .glow-amber{ width:640px; height:640px; top:-220px; right:-160px; background:radial-gradient(circle, rgba(227,164,88,.22), transparent 70%); }
+    .glow-cyan{ width:560px; height:560px; bottom:-200px; left:-180px; background:radial-gradient(circle, rgba(95,214,221,.14), transparent 70%); }
 
-        @keyframes cardEnterUp {
-            0% { transform: translateY(110px) scale(0.97); opacity: 0; }
-            100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
+    /* =========================================================
+       HERO
+    ========================================================= */
+    .hero{
+        position:relative;
+        min-height:100vh;
+        display:flex;
+        align-items:flex-end;
+        overflow:hidden;
+        isolation:isolate;
+    }
 
-        .container.form-page {
-            animation: cardEnterUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
+    .hero-collage{
+        position:absolute; inset:0; display:flex; z-index:-2;
+    }
+    .hero-collage .cell{
+        flex:1; position:relative; overflow:hidden; height:100%;
+    }
+    .hero-collage img{
+        position:absolute; inset:-6% -6%; width:112%; height:112%;
+        object-fit:cover;
+        filter:grayscale(.28) contrast(1.12) brightness(.62) saturate(1.05);
+        transform:scale(1.12);
+        animation: kenburns 22s ease-in-out infinite alternate;
+        opacity:0;
+        animation-fill-mode:forwards;
+    }
+    .hero-collage .cell:nth-child(1) img{ animation-delay:.1s; }
+    .hero-collage .cell:nth-child(2) img{ animation-delay:.25s; }
+    .hero-collage .cell:nth-child(3) img{ animation-delay:.4s; }
+    .hero-collage .cell:nth-child(4) img{ animation-delay:.55s; }
+    .hero-collage .cell:nth-child(5) img{ animation-delay:.7s; }
+    .hero-collage .cell:nth-child(6) img{ animation-delay:.85s; }
 
-        .container.form-page.is-leaving {
-            animation: cardExitUp 0.5s cubic-bezier(0.55, 0, 1, 0.45) both;
-        }
+    @keyframes kenburns{
+        0%{ transform:scale(1.12); }
+        100%{ transform:scale(1.24) translateY(-1.5%); }
+    }
+    @keyframes fadeInPhoto{ to{ opacity:1; } }
+    .hero-collage img{ animation-name: kenburns, fadeInPhoto; animation-duration:22s, 1.6s; animation-timing-function: ease-in-out, ease-out; animation-iteration-count: infinite, 1; }
 
-        .container.result-page {
-            animation: cardEnterUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
+    .hero-scrim{
+        position:absolute; inset:0; z-index:-1;
+        background:
+            linear-gradient(180deg, rgba(6,7,10,.55) 0%, rgba(6,7,10,.72) 38%, rgba(6,7,10,.94) 78%, var(--void) 100%),
+            linear-gradient(90deg, rgba(6,7,10,.75) 0%, rgba(6,7,10,.2) 35%, rgba(6,7,10,.2) 65%, rgba(6,7,10,.75) 100%);
+    }
 
-        /* ---------- Header ---------- */
-        .header-block {
-            text-align: center;
-            margin-bottom: 8px;
-        }
+    .hero-content{
+        position:relative; z-index:1;
+        width:100%;
+        max-width:1180px;
+        margin:0 auto;
+        padding:150px 32px 64px;
+    }
 
-        .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: linear-gradient(135deg, #eff6ff, #e0f2fe);
-            color: #2563eb;
-            font-size: 11.5px;
-            font-weight: 700;
-            letter-spacing: 0.6px;
-            text-transform: uppercase;
-            padding: 6px 14px;
-            border-radius: 999px;
-            border: 1px solid #dbeafe;
-            margin-bottom: 14px;
-        }
+    .hero-eyebrow{
+        display:inline-flex; align-items:center; gap:10px;
+        font-family:'JetBrains Mono', monospace;
+        font-size:12px; font-weight:600; letter-spacing:3px; text-transform:uppercase;
+        color:var(--amber-2);
+        padding:8px 16px;
+        border:1px solid rgba(227,164,88,.35);
+        border-radius:999px;
+        background:rgba(227,164,88,.06);
+        opacity:0; transform:translateY(-22px);
+        animation: dropIn .8s cubic-bezier(.16,1,.3,1) .15s forwards;
+    }
+    .hero-eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--amber); box-shadow:0 0 10px var(--amber); }
 
-        .brand-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 2px;
-        }
+    .hero-title{
+        font-family:'Bebas Neue', sans-serif;
+        font-weight:400;
+        font-size:clamp(48px, 9vw, 104px);
+        line-height:.94;
+        letter-spacing:.5px;
+        margin:22px 0 0;
+        text-transform:uppercase;
+        color:var(--text-hi);
+    }
+    .hero-title span{
+        display:block;
+        opacity:0; transform:translateY(-38px);
+        animation: dropIn .9s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    .hero-title span:nth-child(1){ animation-delay:.3s; }
+    .hero-title span:nth-child(2){ animation-delay:.45s; color:var(--amber-2); }
+    .hero-title span:nth-child(3){ animation-delay:.6s; }
 
-        h1 {
-            text-align: center;
-            color: #0f2547;
-            background: linear-gradient(120deg, #0f2547 25%, #2563eb 60%, #0ea5e9);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0;
-            font-size: 27px;
-            font-weight: 800;
-            letter-spacing: -0.4px;
-        }
+    @keyframes dropIn{ to{ opacity:1; transform:translateY(0); } }
 
-        .subtitle {
-            text-align: center;
-            color: #64748b;
-            margin-top: 8px;
-            margin-bottom: 12px;
-            font-size: 14.5px;
-        }
+    .hero-sub{
+        max-width:560px;
+        margin:26px 0 0;
+        font-size:16.5px;
+        line-height:1.65;
+        color:var(--text-mid);
+        opacity:0; transform:translateY(18px);
+        animation: riseIn .8s cubic-bezier(.16,1,.3,1) .8s forwards;
+    }
+    @keyframes riseIn{ to{ opacity:1; transform:translateY(0); } }
 
-        .header-divider {
-            width: 60px;
-            height: 4px;
-            margin: 16px auto 24px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #0ea5e9, #2563eb);
-            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
-        }
+    .hero-cta-row{
+        display:flex; align-items:center; gap:26px; flex-wrap:wrap;
+        margin-top:38px;
+        opacity:0; transform:translateY(18px);
+        animation: riseIn .8s cubic-bezier(.16,1,.3,1) .95s forwards;
+    }
 
-        /* ---------- Form fields ---------- */
-        .form-group {
-            margin-bottom: 16px;
-        }
+    .hero-cta{
+        position:relative; isolation:isolate; overflow:hidden;
+        display:inline-flex; align-items:center; gap:10px;
+        padding:16px 30px;
+        border-radius:12px;
+        background:linear-gradient(135deg, var(--amber-2), var(--amber) 60%, var(--amber-deep));
+        color:#211405; font-weight:700; font-size:15px; letter-spacing:.3px;
+        text-decoration:none;
+        box-shadow:0 16px 34px rgba(227,164,88,.28);
+        transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .3s ease;
+    }
+    .hero-cta::before{
+        content:""; position:absolute; top:0; left:-60%; width:45%; height:100%;
+        background:linear-gradient(115deg, transparent, rgba(255,255,255,.55), transparent);
+        transform:skewX(-20deg); transition:left .7s ease; z-index:1; pointer-events:none;
+    }
+    .hero-cta:hover{ transform:translateY(-3px); box-shadow:0 22px 44px rgba(227,164,88,.4); }
+    .hero-cta:hover::before{ left:130%; }
 
-        label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 7px;
-            font-weight: 600;
-            color: #334155;
-            font-size: 14px;
-        }
+    .hero-scroll-cue{
+        display:flex; align-items:center; gap:10px;
+        font-family:'JetBrains Mono', monospace;
+        font-size:11.5px; letter-spacing:2px; text-transform:uppercase;
+        color:var(--text-dim);
+    }
+    .hero-scroll-cue .chevrons{ display:flex; flex-direction:column; gap:2px; }
+    .hero-scroll-cue svg{ width:14px; height:8px; display:block; opacity:.3; animation:cuePulse 1.8s ease-in-out infinite; }
+    .hero-scroll-cue svg:nth-child(2){ animation-delay:.2s; }
+    .hero-scroll-cue svg:nth-child(3){ animation-delay:.4s; }
+    @keyframes cuePulse{ 0%,100%{ opacity:.15; transform:translateY(0); } 50%{ opacity:.85; transform:translateY(3px); } }
 
-        input,
-        select {
-            width: 100%;
-            padding: 12px 13px;
-            border: 1.5px solid #d7dee8;
-            border-radius: 10px;
-            font-size: 15px;
-            outline: none;
-            background: #f8fafc;
-            color: #1e293b;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-            font-family: inherit;
-        }
+    /* instrument gauges */
+    .gauge-row{
+        display:flex; gap:42px; flex-wrap:wrap;
+        margin-top:64px;
+        padding-top:36px;
+        border-top:1px solid var(--line);
+        opacity:0; transform:translateY(18px);
+        animation: riseIn .9s cubic-bezier(.16,1,.3,1) 1.1s forwards;
+    }
+    .gauge{ display:flex; align-items:center; gap:16px; }
+    .gauge-ring{ width:64px; height:64px; flex:none; }
+    .gauge-track{ fill:none; stroke:rgba(255,255,255,.1); stroke-width:6; }
+    .gauge-fill{
+        fill:none; stroke:var(--amber); stroke-width:6; stroke-linecap:round;
+        stroke-dasharray:326.7; stroke-dashoffset:326.7;
+        transform:rotate(-90deg); transform-origin:50% 50%;
+        transition:stroke-dashoffset 1.6s cubic-bezier(.16,1,.3,1) .3s;
+    }
+    .gauge.cyan-ring .gauge-fill{ stroke:var(--cyan); }
+    .gauge.in-view .gauge-fill{ stroke-dashoffset: var(--offset); }
+    .gauge-copy .num{ font-family:'JetBrains Mono', monospace; font-size:18px; font-weight:700; color:var(--text-hi); line-height:1; }
+    .gauge-copy .lbl{ font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--text-dim); margin-top:6px; }
 
-        input::placeholder {
-            color: #9aa5b1;
-        }
+    /* =========================================================
+       CONSOLE / FORM SECTION
+    ========================================================= */
+    .console-wrap{
+        position:relative; z-index:1;
+        padding:96px 24px 120px;
+    }
 
-        input:hover,
-        select:hover {
-            border-color: #93c5fd;
-        }
+    .console-intro{
+        max-width:640px; margin:0 auto 46px; text-align:center;
+    }
+    .console-eyebrow{
+        font-family:'JetBrains Mono', monospace; font-size:11.5px; font-weight:600;
+        letter-spacing:3px; text-transform:uppercase; color:var(--cyan);
+    }
+    .console-title{
+        font-family:'Bebas Neue', sans-serif; font-weight:400; letter-spacing:.5px;
+        font-size:clamp(30px, 4vw, 42px); margin:14px 0 0; text-transform:uppercase;
+    }
+    .console-sub{ color:var(--text-mid); font-size:15px; margin-top:12px; line-height:1.6; }
 
-        input:focus,
-        select:focus {
-            border-color: #2563eb;
-            background: #ffffff;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
-        }
+    .stage{
+        width:100%; max-width:720px; margin:0 auto; position:relative; perspective:1200px;
+    }
 
-        select {
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-            padding-right: 36px;
-        }
+    .container{
+        width:100%;
+        background:linear-gradient(180deg, var(--panel-2), var(--panel));
+        border:1px solid var(--line);
+        border-radius:22px;
+        padding:38px 32px 34px;
+        box-shadow:0 40px 90px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+        position:relative;
+    }
 
-        @keyframes buttonGlowPulse {
-            0%, 100% { box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35); }
-            50% { box-shadow: 0 14px 32px rgba(37, 99, 235, 0.55); }
-        }
+    @keyframes cardExitUp{ 0%{ transform:translateY(0) scale(1); opacity:1; } 100%{ transform:translateY(-90px) scale(.96); opacity:0; } }
+    @keyframes cardEnterUp{ 0%{ transform:translateY(70px) scale(.97); opacity:0; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
 
-        button {
-            width: 100%;
-            padding: 15px;
-            margin-top: 14px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #0ea5e9, #2563eb 65%, #1d4ed8);
-            background-size: 160% 160%;
-            color: white;
-            font-size: 17px;
-            font-weight: 700;
-            letter-spacing: 0.2px;
-            cursor: pointer;
-            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, background-position 0.5s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            position: relative;
-            overflow: hidden;
-            isolation: isolate;
-            animation: buttonGlowPulse 2.6s ease-in-out infinite;
-        }
+    .container.form-page{ animation: cardEnterUp .7s cubic-bezier(.22,1,.36,1) both; }
+    .container.form-page.is-leaving{ animation: cardExitUp .5s cubic-bezier(.55,0,1,.45) both; }
 
-        /* diagonal shimmer sweep */
-        button::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -60%;
-            width: 45%;
-            height: 100%;
-            background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-            transform: skewX(-20deg);
-            transition: left 0.7s ease;
-            z-index: 1;
-            pointer-events: none;
-        }
+    .header-block{ text-align:center; margin-bottom:6px; }
+    .header-divider{
+        width:56px; height:3px; margin:18px auto 26px; border-radius:999px;
+        background:linear-gradient(90deg, var(--cyan), var(--amber));
+    }
+    .form-heading{
+        font-family:'Bebas Neue', sans-serif; font-size:26px; letter-spacing:.5px;
+        text-transform:uppercase; color:var(--text-hi); margin:0;
+    }
+    .form-subheading{ color:var(--text-mid); font-size:13.5px; margin-top:10px; }
 
-        button:hover::before {
-            left: 130%;
-        }
+    .section-title{
+        display:flex; align-items:center; gap:12px;
+        margin:30px 0 18px; padding-bottom:10px;
+        border-bottom:1px solid var(--line);
+        color:var(--text-hi); font-size:13.5px; font-weight:700;
+        text-transform:uppercase; letter-spacing:1px;
+        opacity:0; transform:translateY(14px);
+    }
+    .section-title.in-view{ animation: riseIn .55s cubic-bezier(.16,1,.3,1) forwards; }
+    .section-title:first-of-type{ margin-top:2px; }
+    .section-title .idx{
+        font-family:'JetBrains Mono', monospace; color:var(--amber-2);
+        font-size:12px; letter-spacing:1px;
+    }
 
-        button > * {
-            position: relative;
-            z-index: 2;
-        }
+    .form-group{
+        margin-bottom:15px;
+        opacity:0; transform:translateY(16px);
+    }
+    .form-group.in-view{ animation: riseIn .5s cubic-bezier(.16,1,.3,1) forwards; }
 
-        button:hover {
-            transform: translateY(-3px) scale(1.015);
-            box-shadow: 0 18px 34px rgba(37, 99, 235, 0.48);
-            background-position: 100% 0;
-            animation-play-state: paused;
-        }
+    label{
+        display:flex; align-items:center; gap:6px; margin-bottom:8px;
+        font-weight:600; color:var(--text-mid); font-size:12.5px;
+        text-transform:uppercase; letter-spacing:.6px;
+    }
 
-        button:active {
-            transform: translateY(-1px) scale(0.98);
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
-        }
+    input, select{
+        width:100%; padding:13px 14px;
+        border:1.5px solid var(--line-2);
+        border-radius:10px; font-size:15px; outline:none;
+        background:var(--panel-3); color:var(--text-hi);
+        transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        font-family:'Inter', sans-serif;
+    }
+    input::placeholder{ color:#565c6c; }
+    input:hover, select:hover{ border-color: rgba(227,164,88,.45); }
+    input:focus, select:focus{
+        border-color:var(--amber);
+        background:#1d212c;
+        box-shadow:0 0 0 4px rgba(227,164,88,.14);
+    }
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--text-hi) !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--panel-3) inset !important;
+    box-shadow: 0 0 0 1000px var(--panel-3) inset !important;
+    background-color: var(--panel-3) !important;
+    color: var(--text-hi) !important;
+    caret-color: var(--text-hi);
+}
 
-        button:disabled {
-            opacity: 0.75;
-            cursor: default;
-            transform: none;
-            animation: none;
-        }
+input {
+    color: var(--text-hi) !important;
+    background: var(--panel-3) !important;
+}
 
-        button:disabled::before {
-            display: none;
-        }
+input::placeholder {
+    color: #565c6c !important;
+    opacity: 1;
+}
+    select{
+        appearance:none; -webkit-appearance:none;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3aab9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat:no-repeat; background-position:right 14px center; background-size:16px;
+        padding-right:38px;
+    }
+    select option{ background:var(--panel-3); color:var(--text-hi); }
 
-        /* ripple effect spawned by JS on click */
-        .ripple {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.55);
-            transform: scale(0);
-            animation: rippleAnim 0.6s ease-out forwards;
-            pointer-events: none;
-            z-index: 1;
-        }
+    @keyframes buttonGlowPulse{
+        0%,100%{ box-shadow:0 14px 26px rgba(227,164,88,.28); }
+        50%{ box-shadow:0 16px 36px rgba(227,164,88,.46); }
+    }
 
-        @keyframes rippleAnim {
-            to {
-                transform: scale(2.8);
-                opacity: 0;
-            }
-        }
+    button{
+        width:100%; padding:16px; margin-top:16px;
+        border:none; border-radius:12px;
+        background:linear-gradient(135deg, var(--amber-2), var(--amber) 60%, var(--amber-deep));
+        background-size:160% 160%;
+        color:#211405; font-size:16.5px; font-weight:700; letter-spacing:.2px;
+        cursor:pointer;
+        box-shadow:0 14px 26px rgba(227,164,88,.28);
+        transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease, background-position .5s ease;
+        display:flex; align-items:center; justify-content:center; gap:8px;
+        position:relative; overflow:hidden; isolation:isolate;
+        animation: buttonGlowPulse 2.6s ease-in-out infinite;
+    }
+    button::before{
+        content:""; position:absolute; top:0; left:-60%; width:45%; height:100%;
+        background:linear-gradient(115deg, transparent, rgba(255,255,255,.6), transparent);
+        transform:skewX(-20deg); transition:left .7s ease; z-index:1; pointer-events:none;
+    }
+    button:hover::before{ left:130%; }
+    button > *{ position:relative; z-index:2; }
+    button:hover{ transform:translateY(-3px) scale(1.015); box-shadow:0 20px 38px rgba(227,164,88,.42); background-position:100% 0; animation-play-state:paused; }
+    button:active{ transform:translateY(-1px) scale(.98); }
+    button:disabled{ opacity:.7; cursor:default; transform:none; animation:none; }
+    button:disabled::before{ display:none; }
 
-        .section-title {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            gap: 8px;
-            margin-top: 28px;
-            margin-bottom: 16px;
-            color: #1d4ed8;
-            font-size: 15px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #e6edf7;
-            padding-bottom: 9px;
-        }
+    .ripple{
+        position:absolute; border-radius:50%; background:rgba(255,255,255,.5);
+        transform:scale(0); animation:rippleAnim .6s ease-out forwards; pointer-events:none; z-index:1;
+    }
+    @keyframes rippleAnim{ to{ transform:scale(2.8); opacity:0; } }
 
-        .section-title:first-of-type {
-            margin-top: 4px;
-        }
+    .form-footnote{
+        text-align:center; margin-top:20px; font-size:12px; color:var(--text-dim); line-height:1.6;
+    }
 
-        /* ---------- Result page ---------- */
-        .result-header {
-            text-align: center;
-            margin-bottom: 22px;
-        }
+    /* =========================================================
+       RESULT / SHOWROOM REVEAL PAGE
+    ========================================================= */
+    .reveal-stage{
+        position:relative; min-height:100vh;
+        display:flex; align-items:center; justify-content:center;
+        padding:70px 20px;
+        z-index:1;
+    }
 
-        @keyframes badgePop {
-            0% { transform: scale(0.85); opacity: 0; }
-            60% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+    .reveal-panel{
+        width:100%; max-width:640px;
+        background:linear-gradient(180deg, var(--panel-2), var(--panel));
+        border:1px solid var(--line);
+        border-radius:24px;
+        padding:42px 34px 36px;
+        box-shadow:0 50px 110px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04);
+        text-align:center;
+        animation: cardEnterUp .75s cubic-bezier(.22,1,.36,1) both;
+    }
 
-        @keyframes badgeDotPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.55; transform: scale(1.3); }
-        }
+    .reveal-badge{
+        display:inline-flex; align-items:center; gap:8px;
+        background:rgba(123,232,172,.09); color:var(--success);
+        font-family:'JetBrains Mono', monospace;
+        font-size:11.5px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+        padding:8px 16px; border-radius:999px; border:1px solid rgba(123,232,172,.3);
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .1s forwards;
+    }
+    .reveal-badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); animation:badgeDotPulse 1.6s ease-in-out infinite; }
+    @keyframes badgeDotPulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:.5; transform:scale(1.3);} }
 
-        .result-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-            color: #059669;
-            font-size: 12.5px;
-            font-weight: 700;
-            padding: 7px 16px;
-            border-radius: 999px;
-            margin-bottom: 4px;
-            letter-spacing: 0.4px;
-            border: 1px solid #bbf3da;
-            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.18);
-            animation: badgePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-        }
+    .reveal-title{
+        font-family:'Bebas Neue', sans-serif; font-weight:400; letter-spacing:.5px;
+        text-transform:uppercase; font-size:clamp(26px,4vw,34px);
+        margin:16px 0 4px;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .2s forwards;
+    }
+    .reveal-sub{
+        color:var(--text-mid); font-size:14px; margin:0 0 30px;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .28s forwards;
+    }
 
-        .result-badge .dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #10b981;
-            display: inline-block;
-            animation: badgeDotPulse 1.6s ease-in-out infinite;
-        }
+    /* car showcase */
+    .car-showcase{
+        position:relative; height:220px; margin:0 auto 30px;
+        display:flex; align-items:center; justify-content:center;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .35s forwards;
+    }
+    .spotlight{
+        position:absolute; inset:-20% -10% auto -10%; height:260px; top:50%; transform:translateY(-50%);
+        background:radial-gradient(ellipse at center, rgba(227,164,88,.28), rgba(95,214,221,.06) 55%, transparent 75%);
+        filter:blur(6px);
+        opacity:0;
+        animation: spotlightPulse 3.2s ease-in-out .9s infinite;
+    }
+    @keyframes spotlightPulse{
+        0%,100%{ opacity:.55; }
+        50%{ opacity:.9; }
+    }
+    .car-photo-frame{
+        position:relative; width:100%; max-width:480px; height:210px;
+        border-radius:16px; overflow:hidden;
+        border:1px solid var(--line);
+        background:var(--panel-3);
+        opacity:0; transform:translateY(34px) scale(.9);
+        filter:blur(6px);
+        transition: opacity 1s cubic-bezier(.16,1,.3,1), transform 1s cubic-bezier(.16,1,.3,1), filter 1s ease;
+    }
+    .car-photo-frame.is-shown{ opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+    .car-photo-frame img{
+        width:100%; height:100%; object-fit:cover; display:block;
+        transform:scale(1.08);
+        transition:transform 1.4s cubic-bezier(.16,1,.3,1);
+    }
+    .car-photo-frame.is-shown img{ transform:scale(1); }
+    .car-photo-frame::after{
+        content:""; position:absolute; inset:0;
+        background:linear-gradient(180deg, transparent 55%, rgba(6,7,10,.75) 100%);
+        pointer-events:none;
+    }
+    .car-caption{
+        position:absolute; left:16px; bottom:12px; z-index:2;
+        font-family:'JetBrains Mono', monospace; font-size:11.5px; letter-spacing:1px;
+        color:var(--text-hi); text-transform:uppercase;
+        opacity:0; transition:opacity .6s ease .5s;
+    }
+    .car-photo-frame.is-shown ~ .car-caption,
+    .car-showcase .car-photo-frame.is-shown + .car-caption{ opacity:1; }
 
-        .result {
-            margin-top: 10px;
-            padding: 34px 20px 30px;
-            text-align: center;
-            background: radial-gradient(circle at 50% 0%, #eaf3ff, #e0edff 60%);
-            border-radius: 18px;
-            border: 1.5px solid #cfe0fb;
-            position: relative;
-            overflow: hidden;
-        }
+    .price-block{
+        padding:28px 20px 26px;
+        background:radial-gradient(circle at 50% 0%, rgba(227,164,88,.08), rgba(95,214,221,.03) 60%);
+        border:1px solid var(--line); border-radius:18px;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .45s forwards;
+    }
+    .price-label{
+        font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:2px;
+        text-transform:uppercase; color:var(--text-dim);
+        display:inline-flex; align-items:center; gap:10px;
+    }
+    .price-label::before, .price-label::after{ content:""; width:20px; height:1px; background:var(--line-2); }
 
-        .result-title {
-            color: #475569;
-            font-size: 13.5px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            margin-bottom: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
+    .price{
+        font-family:'Bebas Neue', sans-serif; font-weight:400;
+        background:linear-gradient(135deg, var(--amber-2), var(--cyan));
+        -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+        font-size:clamp(42px, 8vw, 58px);
+        margin:10px 0 2px; letter-spacing:.5px;
+    }
+    .price-note{ color:var(--text-mid); font-size:13.5px; margin-top:4px; }
 
-        .result-title::before,
-        .result-title::after {
-            content: "";
-            width: 22px;
-            height: 1.5px;
-            background: #cbd5e1;
-        }
+    .back-button{
+        display:flex; align-items:center; justify-content:center; gap:8px;
+        margin-top:26px; padding:15px;
+        background:linear-gradient(135deg, var(--panel-3), #20242f);
+        border:1px solid var(--line-2);
+        color:var(--text-hi); text-decoration:none;
+        border-radius:12px; font-weight:700; font-size:14.5px;
+        position:relative; overflow:hidden; isolation:isolate;
+        transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease, border-color .25s ease;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .55s forwards;
+    }
+    .back-button::before{
+        content:""; position:absolute; top:0; left:-60%; width:45%; height:100%;
+        background:linear-gradient(115deg, transparent, rgba(255,255,255,.16), transparent);
+        transform:skewX(-20deg); transition:left .7s ease; z-index:1; pointer-events:none;
+    }
+    .back-button:hover{ border-color:rgba(227,164,88,.45); transform:translateY(-3px) scale(1.015); box-shadow:0 16px 28px rgba(0,0,0,.4); }
+    .back-button:hover::before{ left:130%; }
+    .back-button > *{ position:relative; z-index:2; }
 
-        .price {
-            color: #1d4ed8;
-            background: linear-gradient(135deg, #0ea5e9, #1d4ed8);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 46px;
-            font-weight: 800;
-            margin: 6px 0 4px;
-            letter-spacing: -0.5px;
-            position: relative;
-        }
+    .disclaimer{
+        margin-top:18px; font-size:12px; color:var(--text-dim); line-height:1.6;
+        opacity:0; animation: riseIn .5s cubic-bezier(.16,1,.3,1) .6s forwards;
+    }
 
-        .price-note {
-            color: #64748b;
-            font-size: 14px;
-            margin-top: 6px;
-        }
-
-        .disclaimer {
-            margin-top: 18px;
-            font-size: 12.5px;
-            color: #94a3b8;
-            text-align: center;
-            line-height: 1.5;
-        }
-
-        .back-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            text-align: center;
-            margin-top: 22px;
-            padding: 14px;
-            background: linear-gradient(135deg, #0f2547, #16345f);
-            background-size: 160% 160%;
-            color: white;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 15px;
-            position: relative;
-            overflow: hidden;
-            isolation: isolate;
-            box-shadow: 0 10px 20px rgba(15, 37, 71, 0.3);
-            transition: background-position 0.5s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
-        }
-
-        .back-button::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -60%;
-            width: 45%;
-            height: 100%;
-            background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-            transform: skewX(-20deg);
-            transition: left 0.7s ease;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .back-button > * {
-            position: relative;
-            z-index: 2;
-        }
-
-        .back-button:hover {
-            background-position: 100% 0;
-            transform: translateY(-3px) scale(1.015);
-            box-shadow: 0 16px 28px rgba(15, 37, 71, 0.4);
-        }
-
-        .back-button:hover::before {
-            left: 130%;
-        }
-
-        .back-button:active {
-            transform: translateY(-1px) scale(0.98);
-        }
-
-        @media (max-width: 480px) {
-            .price { font-size: 36px; }
-            h1 { font-size: 22px; }
-        }
-    </style>
+    @media (max-width: 640px){
+        .hero-content{ padding:120px 22px 52px; }
+        .gauge-row{ gap:28px; }
+        .container{ padding:30px 20px 26px; }
+        .price{ font-size:40px; }
+    }
+</style>
 </head>
 
 <body>
 
-<div class="stage">
+<div class="grid-veil"></div>
+<div class="glow-amber"></div>
+<div class="glow-cyan"></div>
 
-    {% if predicted_price is defined %}
+{% if predicted_price is defined %}
 
-        <!-- RESULT PAGE -->
-        <div class="container result-page">
+    <!-- ============================================================
+         RESULT PAGE — SHOWROOM REVEAL
+    ============================================================= -->
+    <section class="reveal-stage">
+        <div class="reveal-panel">
 
-            <div class="header-block">
-                <span class="eyebrow">Valuation Result</span>
-                <div class="brand-row">
-                    <h1>Used Car Price Prediction</h1>
+            <span class="reveal-badge"><span class="dot"></span>Valuation Complete</span>
+            <h1 class="reveal-title">Your Car, Appraised</h1>
+            <p class="reveal-sub">Matched against real listings and twenty-three data points you provided</p>
+
+            <div class="car-showcase">
+                <div class="spotlight"></div>
+                <div class="car-photo-frame" id="carPhotoFrame">
+                    <img id="predictedCarImg" src="" alt="Representative vehicle for your predicted body type">
                 </div>
-                <div class="subtitle">Here's what your car is estimated to be worth</div>
-                <div class="header-divider"></div>
+                <div class="car-caption" id="carCaption">Representative image</div>
             </div>
 
-            <div class="result-header">
-                <span class="result-badge"><span class="dot"></span>Prediction Complete</span>
-            </div>
-
-            <div class="result">
-                <div class="result-title">Predicted Price</div>
-
-                <div class="price" data-target="{{ predicted_price }}" id="priceValue">
-                    ₹0.00 lakhs
-                </div>
-
+            <div class="price-block">
+                <div class="price-label">Predicted Price</div>
+                <div class="price" data-target="{{ predicted_price }}" id="priceValue">₹0.00 lakhs</div>
                 <p class="price-note">Estimated market value of your used car</p>
             </div>
 
-            <a href="/" class="back-button">
-                ↺ Predict Another Car
-            </a>
+            <a href="/" class="back-button">↺ Predict Another Car</a>
+
+            <p class="disclaimer">Powered by advanced machine learning and real-world market data, this estimate reveals your car’s potential value with intelligent, data-driven precision.</p>
         </div>
+    </section>
 
-    {% else %}
+{% else %}
 
-        <!-- PREDICTION FORM -->
-        <div class="container form-page" id="formContainer">
+    <!-- ============================================================
+         HOME PAGE — HERO + VALUATION CONSOLE
+    ============================================================= -->
+    <header class="hero" id="hero">
+        <div class="hero-collage">
+            <div class="cell"><img src="https://images.unsplash.com/photo-1767907571229-01cf4ba03590?auto=format&fit=crop&w=900&q=70" alt=""></div>
+            <div class="cell"><img src="https://images.unsplash.com/photo-1764605206511-7a649d9df63b?auto=format&fit=crop&w=900&q=70" alt=""></div>
+            <div class="cell"><img src="https://images.unsplash.com/photo-1733702868642-7a85765a0b3f?auto=format&fit=crop&w=900&q=70" alt=""></div>
+            <div class="cell"><img src="https://images.unsplash.com/photo-1547559418-8d7437f53b5b?auto=format&fit=crop&w=900&q=70" alt=""></div>
+            <div class="cell"><img src="https://images.unsplash.com/photo-1654983295971-959d746d877f?auto=format&fit=crop&w=900&q=70" alt=""></div>
+            <div class="cell"><img src="https://images.unsplash.com/photo-1666873660032-b8b6f37e4ba4?auto=format&fit=crop&w=900&q=70" alt=""></div>
+        </div>
+        <div class="hero-scrim"></div>
 
-            <div class="header-block">
-                <span class="eyebrow">AI-Powered Valuation</span>
-                <div class="brand-row">
-                    <h1>Used Car Price Prediction</h1>
+        <div class="hero-content">
+            <span class="hero-eyebrow"><span class="dot"></span>AI Valuation Engine</span>
+
+            <h1 class="hero-title">
+                <span>Know the</span>
+                <span>real value</span>
+                <span>of your car</span>
+            </h1>
+
+            <p class="hero-sub">
+                Powered by real-world data and machine learning, discover the price your car truly deserves...
+            </p>
+
+            <div class="hero-cta-row">
+                <a href="#console" class="hero-cta">Start Your Valuation →</a>
+                <div class="hero-scroll-cue">
+                    <div class="chevrons">
+                        <svg viewBox="0 0 14 8"><path d="M1 1l6 6 6-6" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+                    </div>
+                    Scroll to begin
                 </div>
-                <div class="subtitle">
-                    Enter your car's details below to get an instant price estimate
-                </div>
-                <div class="header-divider"></div>
             </div>
 
-            <form action="/predict" method="POST" id="predictForm">
-
-                <div class="section-title">Basic Car Information</div>
-
-                <div class="form-group">
-                    <label>Car Brand</label>
-                    <input type="text"
-                           name="brand"
-                           placeholder="Example: Maruti"
-                           required>
+            <div class="gauge-row">
+                <div class="gauge" data-fill="0.86">
+                    <svg class="gauge-ring" viewBox="0 0 120 120">
+                        <circle class="gauge-track" cx="60" cy="60" r="52"></circle>
+                        <circle class="gauge-fill" cx="60" cy="60" r="52"></circle>
+                    </svg>
+                    <div class="gauge-copy"><div class="num">23</div><div class="lbl">Data Points</div></div>
                 </div>
-
-                <div class="form-group">
-                    <label>Car Model</label>
-                    <input type="text"
-                           name="model"
-                           placeholder="Example: Swift"
-                           required>
+                <div class="gauge cyan-ring" data-fill="0.94">
+                    <svg class="gauge-ring" viewBox="0 0 120 120">
+                        <circle class="gauge-track" cx="60" cy="60" r="52"></circle>
+                        <circle class="gauge-fill" cx="60" cy="60" r="52"></circle>
+                    </svg>
+                    <div class="gauge-copy"><div class="num">Instant</div><div class="lbl">Processing</div></div>
                 </div>
-
-                <div class="form-group">
-                    <label>Variant</label>
-                    <input type="text"
-                           name="variant"
-                           placeholder="Example: VXI"
-                           required>
+                <div class="gauge" data-fill="0.7">
+                    <svg class="gauge-ring" viewBox="0 0 120 120">
+                        <circle class="gauge-track" cx="60" cy="60" r="52"></circle>
+                        <circle class="gauge-fill" cx="60" cy="60" r="52"></circle>
+                    </svg>
+                    <div class="gauge-copy"><div class="num">Pan-India</div><div class="lbl">Coverage</div></div>
                 </div>
+            </div>
+        </div>
+    </header>
 
-                <div class="form-group">
-                    <label>Body Type</label>
-                    <select name="body_type" required>
-                        <option value="">Select Body Type</option>
-                        <option value="Hatchback">Hatchback</option>
-                        <option value="Sedan">Sedan</option>
-                        <option value="SUV">SUV</option>
-                        <option value="MUV">MUV</option>
-                        <option value="Coupe">Coupe</option>
-                        <option value="Convertible">Convertible</option>
-                        <option value="Wagon">Wagon</option>
-                        <option value="Pickup">Pickup</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Car Age</label>
-                    <input type="number"
-                           name="car_age"
-                           placeholder="Example: 5"
-                           min="0"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Kilometers Driven</label>
-                    <input type="number"
-                           name="kilometers"
-                           placeholder="Example: 50000"
-                           min="0"
-                           required>
-                </div>
-
-
-                <div class="section-title">Engine &amp; Transmission</div>
-
-                <div class="form-group">
-                    <label>Fuel Type</label>
-                    <select name="fuel_type" required>
-                        <option value="">Select Fuel Type</option>
-                        <option value="Petrol">Petrol</option>
-                        <option value="Diesel">Diesel</option>
-                        <option value="CNG">CNG</option>
-                        <option value="Electric">Electric</option>
-                        <option value="LPG">LPG</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Transmission</label>
-                    <select name="transmission" required>
-                        <option value="">Select Transmission</option>
-                        <option value="Manual">Manual</option>
-                        <option value="Automatic">Automatic</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Engine CC</label>
-                    <input type="number"
-                           step="0.1"
-                           name="engine_cc"
-                           placeholder="Example: 1197"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Power BHP</label>
-                    <input type="number"
-                           step="0.1"
-                           name="power_bhp"
-                           placeholder="Example: 88"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Torque Nm</label>
-                    <input type="number"
-                           step="0.1"
-                           name="torque_nm"
-                           placeholder="Example: 113"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Mileage KMPL</label>
-                    <input type="number"
-                           step="0.1"
-                           name="mileage_kmpl"
-                           placeholder="Example: 20"
-                           required>
-                </div>
-
-
-                <div class="section-title">Car Details</div>
-
-                <div class="form-group">
-                    <label>Owner Type</label>
-                    <select name="owner_type" required>
-                        <option value="">Select Owner Type</option>
-                        <option value="First Owner">First Owner</option>
-                        <option value="Second Owner">Second Owner</option>
-                        <option value="Third Owner">Third Owner</option>
-                        <option value="Fourth & Above Owner">
-                            Fourth &amp; Above Owner
-                        </option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Seats</label>
-                    <input type="number"
-                           name="seats"
-                           placeholder="Example: 5"
-                           min="1"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Color</label>
-                    <input type="text"
-                           name="color"
-                           placeholder="Example: White"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Airbags</label>
-                    <input type="number"
-                           name="airbags"
-                           placeholder="Example: 2"
-                           min="0"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Insurance Type</label>
-                    <select name="insurance_type" required>
-                        <option value="">Select Insurance Type</option>
-                        <option value="Comprehensive">Comprehensive</option>
-                        <option value="Third Party">Third Party</option>
-                        <option value="Zero Dep">Zero Dep</option>
-                        <option value="Not Available">Not Available</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Service History</label>
-                    <select name="service_history" required>
-                        <option value="">Select Service History</option>
-                        <option value="Full">Full</option>
-                        <option value="Partial">Partial</option>
-                        <option value="None">None</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Registration Type</label>
-                    <select name="registration_type" required>
-                        <option value="">Select Registration Type</option>
-                        <option value="Individual">Individual</option>
-                        <option value="Commercial">Commercial</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Previous Accidents</label>
-                    <input type="number"
-                           name="previous_accidents"
-                           placeholder="Example: 0"
-                           min="0"
-                           required>
-                </div>
-
-
-                <div class="section-title">Location</div>
-
-                <div class="form-group">
-                    <label>State</label>
-                    <input type="text"
-                           name="state"
-                           placeholder="Example: West Bengal"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>City</label>
-                    <input type="text"
-                           name="city"
-                           placeholder="Example: Kolkata"
-                           required>
-                </div>
-
-                <div class="form-group">
-                    <label>Is Metro City?</label>
-                    <select name="is_metro_city" required>
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
-                </div>
-
-
-                <button type="submit" id="submitBtn">
-                    Predict Car Price →
-                </button>
-
-            </form>
+    <main class="console-wrap" id="console">
+        <div class="console-intro">
+            <div class="console-eyebrow">Valuation Console</div>
+            <h2 class="console-title">Tell us about the car</h2>
+            <p class="console-sub">Fill in the specifications below exactly as they appear on the RC and inspection report for the most accurate estimate.</p>
         </div>
 
-    {% endif %}
+        <div class="stage">
+            <div class="container form-page" id="formContainer">
 
-</div>
+                <div class="header-block">
+                    <h3 class="form-heading">Used Car Price Prediction</h3>
+                    <p class="form-subheading">Enter your car's details below to get an instant price estimate</p>
+                    <div class="header-divider"></div>
+                </div>
+
+                <form action="/predict" method="POST" id="predictForm">
+
+                    <div class="section-title"><span class="idx">01</span> Basic Car Information</div>
+
+                    <div class="form-group">
+                        <label>Car Brand</label>
+                        <input type="text" name="brand" placeholder="Example: Maruti" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Car Model</label>
+                        <input type="text" name="model" placeholder="Example: Swift" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Variant</label>
+                        <input type="text" name="variant" placeholder="Example: VXI" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Body Type</label>
+                        <select name="body_type" required>
+                            <option value="">Select Body Type</option>
+                            <option value="Hatchback">Hatchback</option>
+                            <option value="Sedan">Sedan</option>
+                            <option value="SUV">SUV</option>
+                            <option value="MUV">MUV</option>
+                            <option value="Coupe">Coupe</option>
+                            <option value="Convertible">Convertible</option>
+                            <option value="Wagon">Wagon</option>
+                            <option value="Pickup">Pickup</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Car Age</label>
+                        <input type="number" name="car_age" placeholder="Example: 5" min="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Kilometers Driven</label>
+                        <input type="number" name="kilometers" placeholder="Example: 50000" min="0" required>
+                    </div>
+
+
+                    <div class="section-title"><span class="idx">02</span> Engine &amp; Transmission</div>
+
+                    <div class="form-group">
+                        <label>Fuel Type</label>
+                        <select name="fuel_type" required>
+                            <option value="">Select Fuel Type</option>
+                            <option value="Petrol">Petrol</option>
+                            <option value="Diesel">Diesel</option>
+                            <option value="CNG">CNG</option>
+                            <option value="Electric">Electric</option>
+                            <option value="LPG">LPG</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transmission</label>
+                        <select name="transmission" required>
+                            <option value="">Select Transmission</option>
+                            <option value="Manual">Manual</option>
+                            <option value="Automatic">Automatic</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Engine CC</label>
+                        <input type="number"
+                               step="0.1"
+                               name="engine_cc"
+                               placeholder="Example: 1197"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Power BHP</label>
+                        <input type="number"
+                               step="0.1"
+                               name="power_bhp"
+                               placeholder="Example: 88"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Torque Nm</label>
+                        <input type="number"
+                               step="0.1"
+                               name="torque_nm"
+                               placeholder="Example: 113"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mileage KMPL</label>
+                        <input type="number"
+                               step="0.1"
+                               name="mileage_kmpl"
+                               placeholder="Example: 20"
+                               required>
+                    </div>
+
+
+                    <div class="section-title"><span class="idx">03</span> Car Details</div>
+
+                    <div class="form-group">
+                        <label>Owner Type</label>
+                        <select name="owner_type" required>
+                            <option value="">Select Owner Type</option>
+                            <option value="First Owner">First Owner</option>
+                            <option value="Second Owner">Second Owner</option>
+                            <option value="Third Owner">Third Owner</option>
+                            <option value="Fourth & Above Owner">
+                                Fourth &amp; Above Owner
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Seats</label>
+                        <input type="number"
+                               name="seats"
+                               placeholder="Example: 5"
+                               min="1"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="text"
+                               name="color"
+                               placeholder="Example: White"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Airbags</label>
+                        <input type="number"
+                               name="airbags"
+                               placeholder="Example: 2"
+                               min="0"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Insurance Type</label>
+                        <select name="insurance_type" required>
+                            <option value="">Select Insurance Type</option>
+                            <option value="Comprehensive">Comprehensive</option>
+                            <option value="Third Party">Third Party</option>
+                            <option value="Zero Dep">Zero Dep</option>
+                            <option value="Not Available">Not Available</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Service History</label>
+                        <select name="service_history" required>
+                            <option value="">Select Service History</option>
+                            <option value="Full">Full</option>
+                            <option value="Partial">Partial</option>
+                            <option value="None">None</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Registration Type</label>
+                        <select name="registration_type" required>
+                            <option value="">Select Registration Type</option>
+                            <option value="Individual">Individual</option>
+                            <option value="Commercial">Commercial</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previous Accidents</label>
+                        <input type="number"
+                               name="previous_accidents"
+                               placeholder="Example: 0"
+                               min="0"
+                               required>
+                    </div>
+
+
+                    <div class="section-title"><span class="idx">04</span> Location</div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input type="text"
+                               name="state"
+                               placeholder="Example: West Bengal"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text"
+                               name="city"
+                               placeholder="Example: Kolkata"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Is Metro City?</label>
+                        <select name="is_metro_city" required>
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+
+
+                    <button type="submit" id="submitBtn">
+                        Predict Car Price →
+                    </button>
+
+                </form>
+            </div>
+        </div>
+    </main>
+
+{% endif %}
 
 <script>
-    // ---------- Smooth exit animation before navigating to the result page ----------
-    (function () {
-        var form = document.getElementById('predictForm');
-        var formContainer = document.getElementById('formContainer');
-        var submitBtn = document.getElementById('submitBtn');
+(function () {
 
-        if (form && formContainer) {
-            form.addEventListener('submit', function (e) {
-                // if the card is already leaving, let the (delayed) submit go through
-                if (formContainer.classList.contains('is-leaving')) {
-                    return;
-                }
-                e.preventDefault();
+    /* ---------- image library used to illustrate the predicted car ---------- */
+    var CAR_IMAGES = {
+        "Hatchback":   { url: "https://images.unsplash.com/photo-1547500393-96e64b79e788?auto=format&fit=crop&w=1200&q=80" },
+        "Sedan":       { url: "https://images.unsplash.com/photo-1764605206511-7a649d9df63b?auto=format&fit=crop&w=1200&q=80" },
+        "SUV":         { url: "https://images.unsplash.com/photo-1547559418-8d7437f53b5b?auto=format&fit=crop&w=1200&q=80" },
+        "MUV":         { url: "https://images.unsplash.com/photo-1547559418-8d7437f53b5b?auto=format&fit=crop&w=1200&q=80" },
+        "Coupe":       { url: "https://images.unsplash.com/photo-1733702868642-7a85765a0b3f?auto=format&fit=crop&w=1200&q=80" },
+        "Convertible": { url: "https://images.unsplash.com/photo-1654983295971-959d746d877f?auto=format&fit=crop&w=1200&q=80" },
+        "Wagon":       { url: "https://images.unsplash.com/photo-1764605206511-7a649d9df63b?auto=format&fit=crop&w=1200&q=80" },
+        "Pickup":      { url: "https://images.unsplash.com/photo-1666873660032-b8b6f37e4ba4?auto=format&fit=crop&w=1200&q=80" }
+    };
+    var DEFAULT_IMAGE = "https://images.unsplash.com/photo-1767907571229-01cf4ba03590?auto=format&fit=crop&w=1200&q=80";
+    var STORAGE_KEY = "ucp_last_submission";
 
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Calculating...';
-                }
+    var form = document.getElementById('predictForm');
+    var formContainer = document.getElementById('formContainer');
+    var submitBtn = document.getElementById('submitBtn');
 
-                formContainer.classList.add('is-leaving');
+    /* ---------- capture form values right before navigating away, so the
+       result page can illustrate the predicted car (the server only
+       returns the price, not the inputs) ---------- */
+    if (form && formContainer) {
+        form.addEventListener('submit', function (e) {
+            if (formContainer.classList.contains('is-leaving')) {
+                return; // already animating out, let the delayed submit go through
+            }
+            e.preventDefault();
 
-                // wait for the exit animation to finish, then actually submit
-                setTimeout(function () {
-                    form.submit();
-                }, 480);
-            });
-        }
+            try {
+                var snapshot = {
+                    brand: form.brand ? form.brand.value : '',
+                    model: form.model ? form.model.value : '',
+                    body_type: form.body_type ? form.body_type.value : ''
+                };
+                sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+            } catch (err) { /* sessionStorage unavailable - ignore, fallback image will be used */ }
 
-        // ---------- Animated price count-up on the result page ----------
-        var priceEl = document.getElementById('priceValue');
-        if (priceEl) {
-            var target = parseFloat(priceEl.getAttribute('data-target')) || 0;
-            var duration = 900;
-            var startTime = null;
-
-            function easeOutCubic(t) {
-                return 1 - Math.pow(1 - t, 3);
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Calculating...';
             }
 
-            function step(timestamp) {
-                if (!startTime) startTime = timestamp;
-                var progress = Math.min((timestamp - startTime) / duration, 1);
-                var eased = easeOutCubic(progress);
-                var current = target * eased;
-                priceEl.textContent = '₹' + current.toFixed(2) + ' lakhs';
-                if (progress < 1) {
-                    requestAnimationFrame(step);
-                }
-            }
+            formContainer.classList.add('is-leaving');
 
-            requestAnimationFrame(step);
+            setTimeout(function () {
+                form.submit();
+            }, 480);
+        });
+    }
+
+    /* ---------- result page: reveal the matched car photo ---------- */
+    var img = document.getElementById('predictedCarImg');
+    var frame = document.getElementById('carPhotoFrame');
+    var caption = document.getElementById('carCaption');
+
+    if (img && frame) {
+        var snapshot = {};
+        try {
+            snapshot = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+        } catch (err) { snapshot = {}; }
+
+        var match = CAR_IMAGES[snapshot.body_type];
+        var chosenUrl = match ? match.url : DEFAULT_IMAGE;
+
+        var captionText;
+        if (snapshot.brand && snapshot.model) {
+            captionText = snapshot.brand + ' ' + snapshot.model + (snapshot.body_type ? ' — ' + snapshot.body_type : '');
+        } else if (snapshot.body_type) {
+            captionText = 'Representative ' + snapshot.body_type;
+        } else {
+            captionText = 'Representative vehicle';
         }
+        if (caption) { caption.textContent = captionText; }
 
-        // ---------- Click ripple effect for the submit + back buttons ----------
-        function attachRipple(el) {
-            if (!el) return;
-            el.addEventListener('click', function (e) {
-                var rect = el.getBoundingClientRect();
-                var ripple = document.createElement('span');
-                var size = Math.max(rect.width, rect.height);
-                ripple.className = 'ripple';
-                ripple.style.width = ripple.style.height = size + 'px';
-                ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
-                ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
-                el.appendChild(ripple);
-                setTimeout(function () {
-                    ripple.remove();
-                }, 650);
+        var reveal = function () {
+            requestAnimationFrame(function () {
+                frame.classList.add('is-shown');
             });
-        }
+        };
 
-        attachRipple(document.getElementById('submitBtn'));
-        attachRipple(document.querySelector('.back-button'));
-    })();
+        img.addEventListener('load', reveal, { once: true });
+        img.addEventListener('error', function () {
+            img.src = DEFAULT_IMAGE;
+        }, { once: true });
+
+        img.src = chosenUrl;
+        // in case the image loads from cache before the listener attaches
+        if (img.complete && img.naturalWidth > 0) { reveal(); }
+    }
+
+    /* ---------- animated price count-up ---------- */
+    var priceEl = document.getElementById('priceValue');
+    if (priceEl) {
+        var target = parseFloat(priceEl.getAttribute('data-target')) || 0;
+        var duration = 1000;
+        var startTime = null;
+
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            var progress = Math.min((timestamp - startTime) / duration, 1);
+            var eased = easeOutCubic(progress);
+            var current = target * eased;
+            priceEl.textContent = '₹' + current.toFixed(2) + ' lakhs';
+            if (progress < 1) { requestAnimationFrame(step); }
+        }
+        setTimeout(function(){ requestAnimationFrame(step); }, 550);
+    }
+
+    /* ---------- click ripple for submit + back buttons ---------- */
+    function attachRipple(el) {
+        if (!el) return;
+        el.addEventListener('click', function (e) {
+            var rect = el.getBoundingClientRect();
+            var ripple = document.createElement('span');
+            var size = Math.max(rect.width, rect.height);
+            ripple.className = 'ripple';
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+            ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+            el.appendChild(ripple);
+            setTimeout(function () { ripple.remove(); }, 650);
+        });
+    }
+    attachRipple(document.getElementById('submitBtn'));
+    attachRipple(document.querySelector('.back-button'));
+
+    /* ---------- staggered reveal of form sections + gauges on scroll ---------- */
+    var revealTargets = document.querySelectorAll('.section-title, .form-group, .gauge');
+    if (revealTargets.length && 'IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    var el = entry.target;
+                    if (el.classList.contains('gauge')) {
+                        var fill = parseFloat(el.getAttribute('data-fill')) || 0.75;
+                        var circumference = 326.7;
+                        el.style.setProperty('--offset', (circumference * (1 - fill)).toFixed(1));
+                    } else {
+                        var delay = Array.prototype.indexOf.call(
+                            el.parentElement.querySelectorAll('.section-title, .form-group'), el
+                        ) % 6 * 45;
+                        el.style.animationDelay = delay + 'ms';
+                    }
+                    el.classList.add('in-view');
+                    io.unobserve(el);
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        revealTargets.forEach(function (el) { io.observe(el); });
+    } else {
+        revealTargets.forEach(function (el) {
+            el.classList.add('in-view');
+            if (el.classList.contains('gauge')) {
+                var fill = parseFloat(el.getAttribute('data-fill')) || 0.75;
+                el.style.setProperty('--offset', (326.7 * (1 - fill)).toFixed(1));
+            }
+        });
+    }
+
+})();
 </script>
 
 </body>
